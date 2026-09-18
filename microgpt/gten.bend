@@ -139,3 +139,12 @@ def zeros(n: Nat) -> +List<F32>:
       Nil{}
     case 1n+m:
       Con{{0.0 : F32}, zeros(m)}
+
+def tmul.zip(+xs: +List<F32>, +ys: +List<F32>) -> +List<F32>:
+  match xs ys:
+    case Nil{} Nil{}:
+      Nil{}
+    case Con{x, xt} Con{y, yt}:
+      Con{(x * y : F32), tmul.zip(xt, yt)}
+    case _ _:
+      Nil{}
