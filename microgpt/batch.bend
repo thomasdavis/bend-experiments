@@ -63,6 +63,53 @@ def bitem(+doc: +List<U32>, +V: U32, +params: +List<F32>, +pn: Nat) -> BT:
      case Con{d, t}:
        Con{bitem(d, V, params, pn), bmap.go(t, V, params, pn)}
 
+ type DT is Data:
+   DN{}
+   DLF{doc: +List<U32>}
+   DBR{l: DT, r: DT}
+
+ def dleaf(+xs: +List<+List<U32>>) -> +List<DT>:
+   match xs:
+     case Nil{}:
+       Nil{}
+     case Con{d, t}:
+       Con{DLF{d}, dleaf(t)}
+
+ def dpair(+xs: +List<DT>) -> +List<DT>:
+   match xs:
+     case Nil{}:
+       Nil{}
+     case Con{a, Nil{}}:
+       Con{a, Nil{}}
+     case Con{a, Con{b, t}}:
+       Con{DBR{a, b}, dpair(t)}
+
+ def dlevel(fuel: Nat, +ts: +List<DT>) -> DT:
+   match fuel ts:
+     case 0n _:
+       DN{}
+     case 1n+f Nil{}:
+       DN{}
+     case 1n+f Con{t, Nil{}}:
+       t
+     case 1n+f Con{a, t2}:
+       dlevel(f, dpair(ts))
+
+ def dbuild(+xs: +List<+List<U32>>) -> DT:
+   dlevel(List.length(&2, +List<U32>, xs), dleaf(xs))
+
+ def bmap.join(+a: +List<BT>, +b: +List<BT>) -> +List<BT>:
+   List.append(&2, BT, a, b)
+
+ def bmap.tree(dt: DT, +V: U32, +params: +List<F32>, +pn: Nat) -> +List<BT>:
+   match dt:
+     case DN{}:
+       Nil{}
+     case DLF{d}:
+       Con{bitem(d, V, params, pn), Nil{}}
+     case DBR{l, r}:
+       a b = bmap.tree(l, V, params, pn) bmap.tree(r, V, params, pn)
+       bmap.join(a, b)
  def bstep.adm(a: (+List<F32> & +List<F32>) & +List<F32>, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +pn: Nat, +lr: F32, +losses: +List<F32>, +loss: F32) -> DS:
    match a:
      case ((pp, mp), vp):
@@ -74,7 +121,7 @@ def bitem(+doc: +List<U32>, +V: U32, +params: +List<F32>, +pn: Nat) -> BT:
        bstep.adm(S.adam.go(params, pg, m, v, (F32.from_nat(step) + 1.0 : F32), lr, {0.85 : F32}, {0.99 : F32}, {0.00000001 : F32}), step, docs, V, pn, lr, losses, loss)
 
  def bstep(+docs: +List<+List<U32>>, +V: U32, +params: +List<F32>, +m: +List<F32>, +v: +List<F32>, +step: Nat, +lr: F32, +pn: Nat, +losses: +List<F32>) -> DS:
-   bstep.red(bred(bmap.go(docs, V, params, pn), pn), params, m, v, step, docs, V, pn, lr, losses)
+   bstep.red(bred(bmap.tree!(dbuild(docs), V, params, pn), pn), params, m, v, step, docs, V, pn, lr, losses)
 
  def bdriver(fuel: Nat, st: DS) -> DS:
    match fuel:
