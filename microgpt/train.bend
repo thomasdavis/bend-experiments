@@ -61,16 +61,16 @@ def train.pick(+ds: +List<+List<U32>>, n: Nat) -> +List<U32>:
     case Con{d, t} 1n+p:
       train.pick(t, p)
 
- def train.cont(+mn: U32, +V: U32, +step: Nat, +num: Nat, +lr0: F32) -> T.TP<F32>:
+ def train.cont(+mn: U32, +V: U32, +step: Nat, +lr0: F32) -> T.TP<F32>:
    do T.TP<F32>:
      u0 : Unit <- T.gset(mn, {1.0 : F32})
      cnt : U32 <- T.tcount()
      u1 : Unit <- B.bwd.go(B.bwd.ids(U32.to_nat(cnt)))
-     u2 : Unit <- adam.go(B.bwd.n2u.go(List.range(U32.to_nat(M.base.np(V)))), step, ((lr0 * ((1.0 - F32.div(F32.from_nat(step), F32.from_nat(num)) : F32)) : F32)), {0.85 : F32}, {0.99 : F32}, {0.00000001 : F32})
+     u2 : Unit <- adam.go(B.bwd.n2u.go(List.range(U32.to_nat(M.base.np(V)))), step, lr0, {0.85 : F32}, {0.99 : F32}, {0.00000001 : F32})
      nd : T.Node <- T.tget(mn)
      return T.ndata(nd)
 
- def train.full(+sum: U32, n: Nat, +V: U32, +step: Nat, +num: Nat, +lr0: F32) -> T.TP<F32>:
+ def train.full(+sum: U32, n: Nat, +V: U32, +step: Nat, +lr0: F32) -> T.TP<F32>:
    match n:
      case 0n:
        do T.TP<F32>:
@@ -80,28 +80,28 @@ def train.pick(+ds: +List<+List<U32>>, n: Nat) -> +List<U32>:
        do T.TP<F32>:
          invc : U32 <- T.vconst(F32.div({1.0 : F32}, F32.from_nat(1n + m)))
          mn : U32 <- T.vmul(sum, invc)
-         train.cont(mn, V, step, num, lr0)
-def train.after(r: (U32 & (Nat & M.AC)), +V: U32, +step: Nat, +num: Nat, +lr0: F32) -> T.TP<F32>:
+         train.cont(mn, V, step, lr0)
+def train.after(r: (U32 & (Nat & M.AC)), +V: U32, +step: Nat, +lr0: F32) -> T.TP<F32>:
   match r:
     case (sum, (n, ac)):
-      train.full(sum, n, V, step, num, lr0)
+      train.full(sum, n, V, step, lr0)
 
-def train.step(+doc: +List<U32>, +V: U32, +step: Nat, +num: Nat, +lr0: F32) -> T.TP<F32>:
+def train.step(+doc: +List<U32>, +V: U32, +step: Nat, +lr0: F32) -> T.TP<F32>:
   do T.TP<F32>:
     u : Unit <- T.tfresh()
     z : U32 <- T.vconst({0.0 : F32})
     r : (U32 & (Nat & M.AC)) <- M.loss.go(doc, 0n, V, M.ac0(), z, 0n)
-    train.after(r, V, step, num, lr0)
+    train.after(r, V, step, lr0)
 
-def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat, +lr0: F32, +acc: +List<F32>) -> T.TP<+List<F32>>:
+def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +lr0: F32, +acc: +List<F32>) -> T.TP<+List<F32>>:
   match fuel:
     case 0n:
       do T.TP<+List<F32>>:
         return acc
     case 1n+f:
       do T.TP<+List<F32>>:
-         l : F32 <- train.step(train.pick(docs, (step - step / List.length(&2, +List<U32>, docs) * List.length(&2, +List<U32>, docs) : Nat)), V, step, num, lr0)
-         train.go(f, 1n + step, docs, V, num, lr0, Con{l, acc})
+         l : F32 <- train.step(train.pick(docs, (step - step / List.length(&2, +List<U32>, docs) * List.length(&2, +List<U32>, docs) : Nat)), V, step, lr0)
+         train.go(f, 1n + step, docs, V, lr0, Con{l, acc})
  type IDV is Data:
    IDV{id: U32, val: F32}
 
@@ -183,7 +183,7 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
          return Nil{}
      case 1n+f:
        do T.TP<+List<+List<U32>>>:
-         s : +List<U32> <- samp.go(10n, 0n, V, M.ac0(), Con{(V - 1 : U32), Nil{}}, j)
+         s : +List<U32> <- samp.go(16n, 0n, V, M.ac0(), Con{(V - 1 : U32), Nil{}}, j)
          rest : +List<+List<U32>> <- samp.all(f, V, (j + 1 : U32))
          return Con{s, rest}
 
@@ -274,10 +274,20 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
      u : Unit <- IO.print(showL(ls))
      printAll(dec.all(ss, us))
 
+def train.epochs(e: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +lr0: F32, +acc: +List<F32>) -> T.TP<+List<F32>>:
+  match e:
+    case 0n:
+      do T.TP<+List<F32>>:
+        return acc
+    case 1n+d:
+      do T.TP<+List<F32>>:
+        ls : +List<F32> <- train.go(100n, step, docs, V, lr0, Nil{})
+        train.epochs(d, (step + 100n), docs, V, lr0, List.append(&2, F32, ls, acc))
+
 def prog(+docs: +List<+List<U32>>, +V: U32) -> T.TP<(+List<F32> & +List<+List<U32>>)>:
   do T.TP<(+List<F32> & +List<+List<U32>>)>:
     iu : U32 <- init.params(V)
-    ls : +List<F32> <- train.go(1000n, 0n, docs, V, 1000n, {0.01 : F32}, Nil{})
+    ls : +List<F32> <- train.epochs(50n, 0n, docs, V, {0.01 : F32}, Nil{})
     ss : +List<+List<U32>> <- samp.all(20n, V, 0)
     return (ls, ss)
 
@@ -297,5 +307,5 @@ def prep(s: String) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    s : String <- D.readInput("/home/ajax/tmp/bend-experiments/microgpt/input.txt")
+    s : String <- D.readInput("/home/ajax/tmp/bend-experiments/microgpt/input-shuf8.txt")
     prep(s)

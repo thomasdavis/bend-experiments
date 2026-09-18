@@ -132,7 +132,7 @@ def vocab(+docs: +List<String>) -> +List<Char>:
        Con{enc.ch(c, us), enc.ids(t, us)}
 
 def enc.wrap(+ids: +List<U32>, +bos: U32) -> +List<U32>:
-  List.take(&2, U32, Con{bos, List.append(&2, U32, ids, Con{bos, Nil{}})}, 10n)
+  List.take(&2, U32, Con{bos, List.append(&2, U32, ids, Con{bos, Nil{}})}, 17n)
 
 def enc.doc(s: String, +us: +List<Char>, +bos: U32) -> +List<U32>:
   enc.wrap(enc.ids(str.chars(s), us), bos)
