@@ -51,7 +51,7 @@ def endoc(+cs: +List<Char>, +us: +List<Char>, +bos: U32) -> +List<U32>:
    match lns:
      case Nil{}:
        Nil{}
-     case Con{l, t}:
+     case Con{+l, t}:
        List.append(&2, +List<Char>, chunk15(D.str.chars(l)), linechunks(t))
 
  def blocks.go(fuel: Nat, +xs: +List<+List<U32>>, +n: Nat) -> +List<+List<+List<U32>>>:
@@ -174,19 +174,36 @@ def endoc(+cs: +List<Char>, +us: +List<Char>, +bos: U32) -> +List<U32>:
      case DS2{params, m, v, step, blocks, V, pn, losses}:
        out.samp(params, V, us, losses)
 
- def prep.docs(+docs: +List<+List<U32>>, +V: U32, +pn: Nat) -> DS2:
-   gdriver(fuel(), DS2{G.pinit.go(U32.to_nat(M.base.np(V)), 0), G.zeros(pn), G.zeros(pn), 0n, blocks(docs, nbs()), V, pn, Nil{}})
+ def prep.init(+docs: +List<+List<U32>>, +V: U32, +pn: Nat) -> DS2:
+   DS2{G.pinit.go(U32.to_nat(M.base.np(V)), 0), G.zeros(pn), G.zeros(pn), 0n, blocks(docs, nbs()), V, pn, Nil{}}
 
  type PR is Data:
    PR{st: DS2, us: +List<Char>}
 
+ def loop(n: Nat, st: DS2, +us: +List<Char>) -> IO(Unit):
+   match n:
+     case 0n:
+       out(st, us)
+     case 1n+k:
+       match st:
+         case DS2{params, m, v, step, blocks, V, pn, losses}:
+           match losses:
+             case Nil{}:
+               do IO<Unit>:
+                 u : Unit <- IO.print("_\n")
+                 loop(k, gdriver(1n, DS2{params, m, v, step, blocks, V, pn, Nil{}}), us)
+             case Con{+l, t}:
+               do IO<Unit>:
+                 u : Unit <- IO.print(F32.show(l) ++ "\n")
+                 loop(k, gdriver(1n, DS2{params, m, v, step, blocks, V, pn, Con{l, t}}), us)
+
  def prep.go(+ls: +List<String>) -> PR:
-   PR{prep.docs(endocs(linechunks(ls), D.vocab(ls), (D.vof(D.vocab(ls)) - 1 : U32)), D.vof(D.vocab(ls)), U32.to_nat(M.base.np(D.vof(D.vocab(ls))))), D.vocab(ls)}
+   PR{prep.init(endocs(linechunks(ls), D.vocab(ls), (D.vof(D.vocab(ls)) - 1 : U32)), D.vof(D.vocab(ls)), U32.to_nat(M.base.np(D.vof(D.vocab(ls))))), D.vocab(ls)}
 
  def prep.nx(p: PR) -> IO(Unit):
    match p:
      case PR{st, us}:
-       out(st, us)
+       loop(fuel(), st, us)
 
  def prep(s: String) -> IO(Unit):
    prep.nx(prep.go(List.take(&2, String, D.lines(s), U32.to_nat(50000))))
