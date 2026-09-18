@@ -12,7 +12,7 @@ def show2(+a: F32, +b: F32) -> IO(Unit):
 
 def main.go2(+a: F32, p2: T.GS3) -> IO(Unit):
   match p2:
-    case T.GS3{toks, pos, cache, acc, n, tp, nx, V, params}:
+    case T.GS3{toks, pos, cache, acc, n, tp, nx, V, params, seeds}:
       show2(a, acc)
 
 def main.go(p1: F32 & Nat, p2: T.GS3) -> IO(Unit):

@@ -26,8 +26,11 @@ type FH is Data:
 type HB is Data:
   HB{out: FV3, ac: PC3}
 
+type SD is Data:
+  SD{id: U32, tgt: U32, lg: +List<F32>}
+
 type GS3 is Data:
-  GS3{toks: +List<U32>, pos: Nat, cache: PC3, acc: F32, n: Nat, tp: +List<TN>, nx: U32, V: U32, params: +List<F32>}
+  GS3{toks: +List<U32>, pos: Nat, cache: PC3, acc: F32, n: Nat, tp: +List<TN>, nx: U32, V: U32, params: +List<F32>, seeds: +List<SD>}
 
 def tadd.rec(+xs: +List<F32>, +ys: +List<F32>, +xaid: U32, +ybid: U32, +tp: +List<TN>, +nx: U32) -> FV3:
   FV3{G.tadd.zip(xs, ys), Con{TN{1, xaid, ybid, 0, xs, ys, Nil{}}, tp}, (nx + 1 : U32), nx}
@@ -263,37 +266,37 @@ def theads1(r0: FH, +q1: +List<F32>, +qid1: U32, +k1: +List<F32>, +kid1: U32, +v
  def tterm(+lg: +List<F32>, +tgt: U32) -> F32:
    F32.neg(F32.log(G.tnth(G.softmax(lg), U32.to_nat(tgt))))
 
- def tloss.go(+rest: +List<U32>, hb: HB, +tgt: U32, +pos: Nat, +V: U32, +params: +List<F32>, +acc: F32, +n: Nat) -> GS3:
+ def tloss.go(+rest: +List<U32>, hb: HB, +tgt: U32, +pos: Nat, +V: U32, +params: +List<F32>, +acc: F32, +n: Nat, +seeds: +List<SD>) -> GS3:
    match rest:
      case Nil{}:
        match hb:
          case HB{out, ac}:
            match out:
-             case FV3{lg, tp2, nx2, id}:
-               GS3{rest, pos, ac, (acc + tterm(lg, tgt) : F32), n, tp2, nx2, V, params}
+             case FV3{+lg, tp2, nx2, id}:
+              GS3{rest, pos, ac, (acc + tterm(lg, tgt) : F32), n, tp2, nx2, V, params, Con{SD{id, tgt, lg}, seeds}}
      case Con{tok2, rest2}:
        match rest2:
          case Nil{}:
            match hb:
              case HB{out, ac}:
                match out:
-                 case FV3{lg, tp2, nx2, id}:
-                   GS3{rest, pos, ac, (acc + tterm(lg, tgt) : F32), n, tp2, nx2, V, params}
+                 case FV3{+lg, tp2, nx2, id}:
+                  GS3{rest, pos, ac, (acc + tterm(lg, tgt) : F32), n, tp2, nx2, V, params, Con{SD{id, tgt, lg}, seeds}}
          case Con{tgt2, tail2}:
            match hb:
              case HB{out, ac}:
                match out:
-                 case FV3{lg, tp2, nx2, id}:
-                   tloss.go(rest2, gstep(tok2, 1n + pos, V, params, ac, tp2, nx2), tgt2, 1n + pos, V, params, (acc + tterm(lg, tgt) : F32), 1n + n)
+                 case FV3{+lg, tp2, nx2, id}:
+                   tloss.go(rest2, gstep(tok2, 1n + pos, V, params, ac, tp2, nx2), tgt2, 1n + pos, V, params, (acc + tterm(lg, tgt) : F32), 1n + n, Con{SD{id, tgt, lg}, seeds})
 
  def tloss.entry(+toks: +List<U32>, +V: U32, +params: +List<F32>) -> GS3:
    match toks:
      case Nil{}:
-       GS3{toks, 0n, pc30(), {0.0 : F32}, 0n, Nil{}, 0, V, params}
+       GS3{toks, 0n, pc30(), {0.0 : F32}, 0n, Nil{}, 0, V, params, Nil{}}
      case Con{tok, rest}:
        match rest:
          case Nil{}:
-           GS3{toks, 0n, pc30(), {0.0 : F32}, 0n, Nil{}, 0, V, params}
+           GS3{toks, 0n, pc30(), {0.0 : F32}, 0n, Nil{}, 0, V, params, Nil{}}
          case Con{tgt, tail}:
-           tloss.go(rest, gstep(tok, 0n, V, params, pc30(), Nil{}, 0), tgt, 0n, V, params, {0.0 : F32}, 0n)
+           tloss.go(rest, gstep(tok, 0n, V, params, pc30(), Nil{}, 0), tgt, 0n, V, params, {0.0 : F32}, 0n, Nil{})
 # touch
