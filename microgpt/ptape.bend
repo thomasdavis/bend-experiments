@@ -153,3 +153,72 @@ def sweep.go(+tp: +List<PN>, acc: SW, +tpall: +List<PN>) -> SW:
               acc
             case Con{g, gt}:
               sweep.go(t, sweep.one(nd, g, gt, p0, p1, tpall), tpall)
+ type ES is Type:
+   ES{tp: +List<PN>, n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>}
+
+ type FR is Type:
+   FR{st: ES, id: U32}
+
+ def esnew(+tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> ES:
+   ES{tp, n, dat, grd, pgd}
+ def pleaf(+pi: U32, +pd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{0, pi, 0, {0.0 : F32}, pd}, tp}, (n + 1 : U32), Array.set(F32, dat, n, pd), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def pconst(+c: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{7, 0, 0, {0.0 : F32}, c}, tp}, (n + 1 : U32), Array.set(F32, dat, n, c), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def padd(+x: U32, +y: U32, +xd: F32, +yd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{1, x, y, {0.0 : F32}, (xd + yd : F32)}, tp}, (n + 1 : U32), Array.set(F32, dat, n, (xd + yd : F32)), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def pmul(+x: U32, +y: U32, +xd: F32, +yd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{2, x, y, {0.0 : F32}, (xd * yd : F32)}, tp}, (n + 1 : U32), Array.set(F32, dat, n, (xd * yd : F32)), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def ppow(+x: U32, +xd: F32, +k: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{3, x, 0, k, F32.pow(xd, k)}, tp}, (n + 1 : U32), Array.set(F32, dat, n, F32.pow(xd, k)), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def plog(+x: U32, +xd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{4, x, 0, {0.0 : F32}, F32.log(xd)}, tp}, (n + 1 : U32), Array.set(F32, dat, n, F32.log(xd)), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def pexp(+x: U32, +xd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{5, x, 0, {0.0 : F32}, F32.exp(xd)}, tp}, (n + 1 : U32), Array.set(F32, dat, n, F32.exp(xd)), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def prelu(+x: U32, +xd: F32, +tp: +List<PN>, +n: U32, dat: Array<F32>, grd: Array<F32>, pgd: Array<F32>) -> FR:
+   FR{esnew(Con{PN{6, x, 0, {0.0 : F32}, F32.max(xd, {0.0 : F32})}, tp}, (n + 1 : U32), Array.set(F32, dat, n, F32.max(xd, {0.0 : F32})), Array.set(F32, grd, n, {0.0 : F32}), pgd), n}
+
+ def dget(a: Array<F32>, +i: U32) -> Array<F32> & F32:
+   Array.get(F32, a, i)
+ def smoke.prt(p: Array<F32> & F32) -> F32:
+   match p:
+     case (dat, v):
+       v
+
+ def smoke.rd(fr: FR) -> F32:
+   match fr:
+     case FR{st, f}:
+       match st:
+         case ES{tp, n, dat, grd, pgd}:
+           smoke.prt(dget(dat, 3))
+
+ def smoke.ad(fr: FR) -> F32:
+   match fr:
+     case FR{st, m}:
+       match st:
+         case ES{tp, n, dat, grd, pgd}:
+           smoke.rd(padd(2, 0, {6.0 : F32}, {2.0 : F32}, tp, n, dat, grd, pgd))
+
+ def smoke.mu(fr: FR) -> F32:
+   match fr:
+     case FR{st, y}:
+       match st:
+         case ES{tp, n, dat, grd, pgd}:
+           smoke.ad(pmul(0, 1, {2.0 : F32}, {3.0 : F32}, tp, n, dat, grd, pgd))
+
+ def smoke.ly(fr: FR) -> F32:
+   match fr:
+     case FR{st, x}:
+       match st:
+         case ES{tp, n, dat, grd, pgd}:
+           smoke.mu(pleaf(1, {3.0 : F32}, tp, n, dat, grd, pgd))
+
+ def smoke() -> F32:
+   smoke.ly(pleaf(0, {2.0 : F32}, Nil{}, 0, Array.new(F32, 2n, {0.0 : F32}), Array.new(F32, 2n, {0.0 : F32}), Array.new(F32, 1n, {0.0 : F32})))
