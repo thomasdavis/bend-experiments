@@ -18,8 +18,6 @@ def node0() -> Node:
 type TS is Type:
   TS{t: Array<Node>, n: U32, p: Array<F32>, g: Array<F32>, pg: Array<F32>, m: Array<F32>, v: Array<F32>}
 
-def ts_new() -> TS:
-  TS{Array.new(Node, 17n, node0()), 0, Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 17n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32})}
 
 # State monad: TP<A> is a tape-state-passing computation (same shape as IO).
 type TP<-A: Type> is Type:
@@ -37,12 +35,14 @@ def TP.then(-A: Type, -B: Type, f: A -> TP<B>, r: TS & A) -> TS & B:
   match r:
     case (st2, a):
       TP.then.go(A, B, f, st2, a)
+ def ts_new() -> TS:
+   TS{Array.new(Node, 18n, node0()), 0, Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 18n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32})}
 
-def TP.pure(-A: Type, x: A) -> TP<A>:
-  TP{st => (st, x)}
+ def TP.pure(-A: Type, x: A) -> TP<A>:
+   TP{st => (st, x)}
 
-def TP.bind(-A: Type, -B: Type, m: TP<A>, f: A -> TP<B>) -> TP<B>:
-  TP{st => TP.then(A, B, f, TP.open(A, m, st))}
+ def TP.bind(-A: Type, -B: Type, m: TP<A>, f: A -> TP<B>) -> TP<B>:
+   TP{st => TP.then(A, B, f, TP.open(A, m, st))}
 
 def TP.run(-A: Type, m: TP<A>, st: TS) -> TS & A:
   TP.open(A, m, st)
@@ -292,3 +292,22 @@ def tappend(op: U32, a: U32, b: U32, k: F32, d: F32) -> TP<U32>:
    do TP<U32>:
      iy : U32 <- vpow(y, ((0.0 - 1.0 : F32)))
      vmul(x, iy)
+ def tcount.go(st: TS) -> TS & U32:
+   match st:
+     case TS{t, +n, p, g, pg, m, v}:
+       (TS{t, n, p, g, pg, m, v}, n)
+
+ def tcount() -> TP<U32>:
+   TP{st => tcount.go(st)}
+
+ def ndata(nd: Node) -> F32:
+   match nd:
+     case N{o, a, b, k, d}:
+       d
+ def tfresh.go(st: TS) -> TS & Unit:
+   match st:
+     case TS{t, n, p, g, pg, m, v}:
+       (TS{Array.new(Node, 18n, node0()), 0, p, Array.new(F32, 18n, {0.0 : F32}), Array.new(F32, 13n, {0.0 : F32}), m, v}, Unit{})
+
+ def tfresh() -> TP<Unit>:
+   TP{st => tfresh.go(st)}
