@@ -134,14 +134,32 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
          case IDV{i, d}:
            argmax.go(t, Bool.pick(U32, F32.is_gt(d, bd), i, bi), F32.max(d, bd))
 
+ def ghash(+smp: U32, +pos: Nat, +i: U32) -> F32:
+   F32.max((U32.to_f32(U32.and((1103515245 * (smp + 1000003 * U32.from_nat(pos) + 9176 * i + 7) + 12345 : U32), 2147483647)) / 2147483648.0 : F32), {0.00000001 : F32})
+
+ def ggum(+u: F32) -> F32:
+   F32.neg(F32.log(F32.neg(F32.log(u))))
+
+ def gpert.one(pr: IDV, +smp: U32, +pos: Nat) -> IDV:
+   match pr:
+     case IDV{+i, d}:
+       IDV{i, F32.add(F32.log(d), ggum(ghash(smp, pos, i)))}
+
+ def gpert.go(+ps: +List<IDV>, +smp: U32, +pos: Nat) -> +List<IDV>:
+   match ps:
+     case Nil{}:
+       Nil{}
+     case Con{pr, t}:
+       Con{gpert.one(pr, smp, pos), gpert.go(t, smp, pos)}
+
  def samp.best(+pr: +List<IDV>) -> U32:
    argmax.go(pr, 0, ((0.0 - 1000000.0 : F32)))
 
- def samp.next(+lg: +List<U32>) -> T.TP<U32>:
+ def samp.next(+lg: +List<U32>, +smp: U32, +pos: Nat) -> T.TP<U32>:
    do T.TP<U32>:
      pr : +List<IDV> <- pairup(lg)
-     return samp.best(pr)
- def samp.go(fuel: Nat, +pos: Nat, +V: U32, +cache: M.AC, +acc: +List<U32>) -> T.TP<+List<U32>>:
+     return samp.best(gpert.go(pr, smp, pos))
+ def samp.go(fuel: Nat, +pos: Nat, +V: U32, +cache: M.AC, +acc: +List<U32>, +smp: U32) -> T.TP<+List<U32>>:
    match fuel:
      case 0n:
        do T.TP<+List<U32>>:
@@ -155,18 +173,18 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
            do T.TP<+List<U32>>:
              lg : +List<U32> <- M.step.logits(tok, pos, V, cache)
              c2 : M.AC <- M.step.cache(tok, pos, V, cache)
-             nt : U32 <- samp.next(lg)
-             samp.go(f, 1n + pos, V, c2, Con{nt, acc})
+             nt : U32 <- samp.next(lg, smp, pos)
+             samp.go(f, 1n + pos, V, c2, Con{nt, acc}, smp)
 
- def samp.all(k: Nat, +V: U32) -> T.TP<+List<+List<U32>>>:
+ def samp.all(k: Nat, +V: U32, +j: U32) -> T.TP<+List<+List<U32>>>:
    match k:
      case 0n:
        do T.TP<+List<+List<U32>>>:
          return Nil{}
      case 1n+f:
        do T.TP<+List<+List<U32>>>:
-         s : +List<U32> <- samp.go(10n, 0n, V, M.ac0(), Con{(V - 1 : U32), Nil{}})
-         rest : +List<+List<U32>> <- samp.all(f, V)
+         s : +List<U32> <- samp.go(10n, 0n, V, M.ac0(), Con{(V - 1 : U32), Nil{}}, j)
+         rest : +List<+List<U32>> <- samp.all(f, V, (j + 1 : U32))
          return Con{s, rest}
 
  def init.wk(p: U32 & F32, +i: U32) -> T.TP<U32>:
@@ -218,6 +236,9 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
      case Con{h, t}:
        F32.show(h) ++ " " ++ showL.go(t)
 
+ def showL(+xs: +List<F32>) -> String:
+   showL.go(List.reverse(&2, F32, xs))
+
  def showU.go(+xs: +List<U32>) -> String:
    match xs:
      case Nil{}:
@@ -247,22 +268,17 @@ def train.go(fuel: Nat, +step: Nat, +docs: +List<+List<U32>>, +V: U32, +num: Nat
        do IO<Unit>:
          u : Unit <- IO.print(showU(s))
          printAll(dec.all(ss, us))
-
-
-def showL(+xs: +List<F32>) -> String:
-  showL.go(List.reverse(&2, F32, xs))
-
  def out(p: T.TS & (+List<F32> & +List<+List<U32>>), +us: +List<Char>) -> IO(Unit):
    (st, (ls, ss)) = p
    do IO<Unit>:
      u : Unit <- IO.print(showL(ls))
-     out.ss(ss, us)
+     printAll(dec.all(ss, us))
 
 def prog(+docs: +List<+List<U32>>, +V: U32) -> T.TP<(+List<F32> & +List<+List<U32>>)>:
   do T.TP<(+List<F32> & +List<+List<U32>>)>:
     iu : U32 <- init.params(V)
-    ls : +List<F32> <- train.go(100n, 0n, docs, V, 100n, {0.01 : F32}, Nil{})
-    ss : +List<+List<U32>> <- samp.all(20n, V)
+    ls : +List<F32> <- train.go(1000n, 0n, docs, V, 1000n, {0.01 : F32}, Nil{})
+    ss : +List<+List<U32>> <- samp.all(20n, V, 0)
     return (ls, ss)
 
 def prep.docs(+docs: +List<+List<U32>>, +us: +List<Char>, +V: U32) -> IO(Unit):
