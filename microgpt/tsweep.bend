@@ -11,29 +11,40 @@ import ./tfwd.bend as T
 type SW2 is Data:
   SW2{gs: +List<+List<F32>>, pg: +List<F32>}
 
+ def paddcvec.put(+g: +List<F32>, +dv: +List<F32>) -> +List<F32>:
+   match g:
+     case Nil{}:
+       dv
+     case Con{h, t}:
+       match dv:
+         case Nil{}:
+           Con{h, t}
+         case Con{d, dt}:
+           G.tadd.zip(Con{h, t}, Con{d, dt})
+
 def paddcvec.go(+gs: +List<+List<F32>>, k: Nat, +dv: +List<F32>) -> +List<+List<F32>>:
   match gs k:
     case Nil{} _:
       Nil{}
-    case Con{g, t} 0n:
-      Con{G.tadd.zip(g, dv), t}
+     case Con{g, t} 0n:
+       Con{paddcvec.put(g, dv), t}
     case Con{g, t} 1n+p:
       Con{g, paddcvec.go(t, p, dv)}
 
-def paddcvec(+gs: +List<+List<F32>>, +k: Nat, +dv: +List<F32>) -> +List<+List<F32>>:
-  List.reverse(&2, +List<F32>, paddcvec.go(List.reverse(&2, +List<F32>, gs), k, dv))
+ def paddcvec(+gs: +List<+List<F32>>, +k: Nat, +dv: +List<F32>) -> +List<+List<F32>>:
+   List.reverse(&2, +List<F32>, paddcvec.go(List.reverse(&2, +List<F32>, gs), k, dv))
 
-def paddsc.go(+pg: +List<F32>, k: Nat, +x: F32) -> +List<F32>:
-  match pg k:
-    case Nil{} _:
-      Nil{}
-    case Con{g, t} 0n:
-      Con{(g + x : F32), t}
-    case Con{g, t} 1n+p:
-      Con{g, paddsc.go(t, p, x)}
+ def paddsc.go(+pg: +List<F32>, k: Nat, +x: F32) -> +List<F32>:
+   match pg k:
+     case Nil{} _:
+       Nil{}
+     case Con{g, t} 0n:
+       Con{(g + x : F32), t}
+     case Con{g, t} 1n+p:
+       Con{g, paddsc.go(t, p, x)}
 
-def paddsc(+pg: +List<F32>, +k: Nat, +x: F32) -> +List<F32>:
-  List.reverse(&2, F32, paddsc.go(List.reverse(&2, F32, pg), k, x))
+ def paddsc(+pg: +List<F32>, +k: Nat, +x: F32) -> +List<F32>:
+   paddsc.go(pg, k, x)
 
 def vadd.go(+tp: +List<T.TN>, +a: U32, +b: U32, +g: +List<F32>, +gs: +List<+List<F32>>, +pg: +List<F32>) -> SW2:
   SW2{paddcvec(paddcvec(gs, U32.to_nat(a), g), U32.to_nat(b), g), pg}
@@ -255,10 +266,11 @@ def vlin(+tab: +List<F32>, +base: U32, rows: Nat, +cols: Nat, +x: +List<F32>, +d
        sweep.is10(U32.is_eq(op, 10), op, a, b, xs, ys, ids, g, gs, pg, params)
 
 
+
  def sweep.is8(z: Bool, +op: U32, +a: U32, +b: U32, +c: U32, +xs: +List<F32>, +ys: +List<F32>, +ids: +List<U32>, +g: +List<F32>, +gs: +List<+List<F32>>, +pg: +List<F32>, +params: +List<F32>) -> SW2:
    match z:
      case True{}:
-       SW2{gs, vgat.bwd(g, a, pg)}
+       SW2{gs, vgat.bwd(g, (a + U32.mul(b, c) : U32), pg)}
      case False{}:
        sweep.is9(U32.is_eq(op, 9), op, a, b, xs, ys, ids, g, gs, pg, params)
 
@@ -268,7 +280,6 @@ def vlin(+tab: +List<F32>, +base: U32, rows: Nat, +cols: Nat, +x: +List<F32>, +d
        SW2{gs, pg}
      case False{}:
        sweep.is8(U32.is_eq(op, 8), op, a, b, c, xs, ys, ids, g, gs, pg, params)
-
  def sweep.is6(z: Bool, +op: U32, +a: U32, +b: U32, +c: U32, +xs: +List<F32>, +ys: +List<F32>, +ids: +List<U32>, +g: +List<F32>, +gs: +List<+List<F32>>, +pg: +List<F32>, +params: +List<F32>) -> SW2:
    match z:
      case True{}:

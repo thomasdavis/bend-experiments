@@ -120,8 +120,8 @@ def tmatvec.go(+rs: +List<Nat>, +tab: +List<F32>, +base: U32, +C: Nat, +x: +List
 def tmatvec(+tab: +List<F32>, +base: U32, rows: Nat, +C: Nat, +x: +List<F32>) -> +List<F32>:
   tmatvec.go(List.range(rows), tab, base, C, x, Nil{})
 
-def phash.c(+u: F32) -> F32:
-  ((u - 0.08 : F32))
+ def phash.c(+u: F32) -> F32:
+   (((u - 0.5 : F32) * 0.16 : F32))
 
 def phash(+i: U32) -> F32:
   phash.c((U32.to_f32(U32.mul(i, 2654435761)) / 4294967296.0 : F32))
